@@ -1,55 +1,32 @@
 classdef GMMFullyConnectedLayer < nnet.layer.Layer ...
         & nnet.layer.Acceleratable ...
         & nnet.layer.Formattable
-    % bayesFullConnectedLayer   Bayesian fully connected layer
-
+    
     properties
         OutputSize
         InputSize
     end
 
     properties(Learnable)
-        % Layer learnable parameters
-
-        % Represent the weights and biases in a Bayesian neural network
-        % by a probability distribution over a possible set
-        % of weight values.
-        % Use MeanWeights, RhoWeights, MeanBias, and RhoBias
-        % to represent the probability distributions.
         MeanWeights
         RhoWeights
         MeanBias
         RhoBias
 
-        % Sigma1 and Sigma2 represent the parameters of the prior
-        % probabilities of the weight distributions. Sigma1 and Sigma2
-        % represent the variances of the mixture of Gaussian distributions
-        % that define the prior distribution.
-        % These are learnable parameters that depend on the
-        % problem/dataset and on the network initialization.
+       
         Sigma1
         Sigma2
     end
 
     properties (State)
-        % Use LogPosterior and LogPrior to approximate the
-        % true Bayesian posterior on the weights.
+      
         LogPosterior
         LogPrior
     end
 
     methods
         function this = GMMFullyConnectedLayer(outputSize,nvargs)
-            % layer = GMMFullyConnectedLayer(outputSize) creates a Bayes
-            % fully connected layer. outputSize specifies the size of the
-            % output for the layer.
-            %
-            % layer = GMMFullyConnectedLayer(numChannels,Sigma1=2,Sigma2=1)
-            % also specifies the variances of the prior distribution.
-            %
-            % layer = GMMFullyConnectedLayer(numChannels,Name=name) also
-            % specifies the layer name.
-
+            
             arguments
                 outputSize
                 nvargs.Name = ""
@@ -112,15 +89,7 @@ classdef GMMFullyConnectedLayer < nnet.layer.Layer ...
 
     methods(Access = private)
         function logPrior = computeLogPrior(this, sampledWeights, sampledBias)
-            % This function takes as input the sampled weights and biases and returns
-            % the log prior.
-            %
-            % The paper 'Weight Uncertainty in Neural Networks', section 3.3 defines the
-            % prior as a scale mixture of gaussians with mean 0 and
-            % variance sigma1 and sigma2 where
-            % * sigma1 is greater than sigma2
-            % * sigma2 must be less than 1.
-            mixturePriorWeights = logScaleMixturePrior(sampledWeights, this.Sigma1, this.Sigma2) + eps;
+                        mixturePriorWeights = logScaleMixturePrior(sampledWeights, this.Sigma1, this.Sigma2) + eps;
             mixturePriorBias = logScaleMixturePrior(sampledBias, this.Sigma1, this.Sigma2) + eps;
 
             logMixturePrior = mixturePriorWeights + mixturePriorBias;
@@ -128,14 +97,6 @@ classdef GMMFullyConnectedLayer < nnet.layer.Layer ...
         end
 
         function logPosterior = estimateLogPosterior(this, sampledWeights, sampledBias)
-            % This function takes as input the sampled weights and biases
-            % and returns the log posterior.
-            %
-            % The posterior is the probability of having the weights and
-            % bias given the dataset D.
-            % This is nontrivial to compute, therefore, the value is
-            % estimated.
-
             weightsSigma = iSigma(this.RhoWeights);
             logProbPosteriorWeights = sum(logProbabilityNormal(sampledWeights, this.MeanWeights, weightsSigma), 'all');
 
@@ -146,14 +107,6 @@ classdef GMMFullyConnectedLayer < nnet.layer.Layer ...
         end
 
         function [w,b] = samplePosterior(this)
-            % This function generates sample from the posterior
-            % distributions of the learnables.
-            %
-            % During training, the algorithm uses the posterior weights.
-            % The posterior weights are conditioned on the MeanWeights and
-            % MeanBias given by the formula
-            % w = mu + log(1 + exp(rho)) * epsilon.
-
             epsilonW = randn([this.OutputSize this.InputSize], "like", this.MeanWeights);
             epsilonB = randn([this.OutputSize 1], "like", this.MeanBias);
 
