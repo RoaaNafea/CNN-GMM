@@ -1,0 +1,150 @@
+function [lgraph,trainInfo]= CNN-GMM()
+
+
+
+
+
+datasetLocation = 'DatasetLocation';
+
+
+
+
+imdsTrain = imageDatastore(datasetLocation,'IncludeSubfolders',true,'LabelSource','foldernames','FileExtensions',{'.png'});
+
+
+imdsValidation = imageDatastore('ValidationLocation','IncludeSubfolders',true,'LabelSource','foldernames','FileExtensions',{'.png'});
+
+
+imageSize = [224 224 3];
+pixelRange = [-4 4];
+
+imageAugmenter = imageDataAugmenter( ...
+    'RandXReflection',true, ...
+    'RandXTranslation',pixelRange, ...
+    'RandYTranslation',pixelRange);
+augmentedImdsTrain = augmentedImageDatastore(imageSize,imdsTrain, ...
+    'DataAugmentation',imageAugmenter);
+
+
+
+optionsadam = trainingOptions("adam",Plots="training-progress",...
+    verbose=1, ValidationFrequency=25,...
+    Epsilon=1e-8, ...
+    MaxEpoch=100,...
+    MiniBatchSize=72,...
+    ValidationData=imdsValidation,...
+    LearnRateDropPeriod=5,...
+    GradientDecayFactor = 0.9,...
+    InitialLearnRate=0.001,...
+     ExecutionEnvironment='cpu', shuffle='every-epoch' );%  و ValidationPatience=6,...
+%LearnRateSchedule ='piecewise',...
+
+layers = [
+
+    imageInputLayer([224 224 3],"Name","imageinput")
+
+    groupedConvolution2dLayer(3,4,'channel-wise',"Name","conv")
+
+    reluLayer("Name","relu")
+
+    batchNormalizationLayer("Name","batchnorm")
+
+    groupedConvolution2dLayer(3,4,'channel-wise',"Name","conv1")
+
+    reluLayer("Name","relu_1")
+
+    batchNormalizationLayer("Name","batchnorm_1")
+
+    maxPooling2dLayer([5 5],"Name","maxpool","Stride",[2 2])
+
+    groupedConvolution2dLayer(3,4,'channel-wise',"Name","conv2")
+
+    reluLayer("Name","relu_2")
+
+    batchNormalizationLayer("Name","batchnorm_2")
+
+    groupedConvolution2dLayer(3,4,'channel-wise',"Name","conv3")
+
+    reluLayer("Name","relu_3")
+
+    batchNormalizationLayer("Name","batchnorm_3")
+
+    maxPooling2dLayer([3 3],"Name","maxpool_1","Stride",[2 2])
+
+    groupedConvolution2dLayer(3,2,'channel-wise',"Name","conv4")
+
+    reluLayer("Name","relu_4")
+
+    batchNormalizationLayer("Name","batchnorm_4")
+
+    groupedConvolution2dLayer(3,2,'channel-wise',"Name","conv5")
+
+    reluLayer("Name","relu_5")
+
+    batchNormalizationLayer("Name","batchnorm_5")
+
+    maxPooling2dLayer([3 3],"Name","maxpool_2","Stride",[2 2])
+
+    groupedConvolution2dLayer(3,1,'channel-wise',"Name","conv6")
+
+    reluLayer("Name","relu_14")
+
+    batchNormalizationLayer("Name","batchnorm_14")
+
+    groupedConvolution2dLayer(3,1,'channel-wise',"Name","conv7")
+
+    reluLayer("Name","relu_15")
+
+    batchNormalizationLayer("Name","batchnorm_15")
+
+    maxPooling2dLayer([3 3],"Name","maxpool_12","Stride",[2 2])
+   
+    reluLayer("Name","relu_16")
+    batchNormalizationLayer("Name","batchnorm_16")
+    fullyConnectedLayer(400,'Name','fc1')
+
+   GMMFullyConnectedLayer(400,Sigma1=1,Sigma2=0.5)
+
+    %reluLayer("Name","relu_6")
+
+    batchNormalizationLayer("Name","batchnorm_6")
+
+
+
+    GMMFullyConnectedLayer(250,Sigma1=1,Sigma2=0.5)
+
+    %reluLayer("Name","relu_7")
+
+    batchNormalizationLayer("Name","batchnorm_7")
+
+
+
+    GMMFullyConnectedLayer(2,Sigma1=1,Sigma2=0.5)
+
+    softmaxLayer("Name","softmax")
+
+    classificationLayer("Name","classoutput")];
+
+analyzeNetwork(layers)
+[lgraph,trainInfo] = trainNetwork(augmentedImdsTrain,layers,optionsadam);
+
+
+
+%classtest=classify(lgraph, Tdata);
+%TPredictors
+
+%c=confusionmat(TPredictors,classtest');
+%confusionchart(c);
+%cm=confusionchart(c);
+save(strcat('data_test_session_',string(datetime('now','Format','dd-MM-uuuu''T''HH-mm-ss')),'.mat'),'lgraph');
+
+[filename,filepath]=uiputfile({'*.csv'},"Save training info");
+if filename==0
+    filename=strcat('train_session_',datestr(now,30),'.csv');
+end
+writecell(struct2cell(trainInfo),strcat(filepath,filename))
+end
+
+
+
+

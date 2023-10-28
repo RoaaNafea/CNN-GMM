@@ -1,0 +1,126 @@
+function [] = mypreprocessing(r,c )
+
+
+% create file data store for videos in the dataset
+x= r;
+y=c;
+
+loc='E:\videos after processing\Real';
+fds = fileDatastore(loc,"ReadFcn",@myread,'IncludeSubfolders',true,'FileExtensions',{'.mp4','.flv'});
+
+
+       
+ % read each video and store its name  
+for i = 1:length(fds.Files)
+  video = read(fds);
+  filename = video.Name;
+  vidlen = video.NumFrames;
+  [~,name,~] = fileparts(filename);
+ videoPath = video.path;
+
+
+%create directory for every video
+   subfolder_name = char(name) ;
+   cd([loc])
+   mkdir ([subfolder_name])
+   cd ([subfolder_name])
+   
+
+stept = (floor(vidlen/(16)));
+
+       for n=1:stept:vidlen
+         
+           %read specific frame
+            thisframe = read(video,n);
+            
+            
+            
+            %detect upper body and crop it
+            FaceDetect = vision.CascadeObjectDetector(); 
+            FaceDetect.MinSize = [64 64];
+    
+            BB = step(FaceDetect, thisframe);
+     if isequal(size(BB),[1,4])                     
+    
+    
+            %crop the image
+            for k = 1 : size(BB, 1) 
+              %crop upper region
+                  thisframe = imcrop(thisframe, BB(k, :));
+                  
+                  processed_image = imresize(thisframe,[224 224]);
+                  
+               
+                imwrite(processed_image,['Image' int2str(n), '.png'],'Mode','lossless','Compression','none');
+            end
+                  
+     else
+         continue
+     end
+          
+            
+       end
+               
+              myfolderinfo = dir('*.png');
+              NoOfImg = numel(myfolderinfo);
+             
+              cd([loc])
+              if NoOfImg>0
+             imds = imageDatastore( (subfolder_name),'FileExtensions',{'.png'});
+              else
+              continue;
+              end
+              
+             j =1;
+
+             while(NoOfImg<(x*y)&& (numel(imds.Files) > 0))
+                 cd ([subfolder_name])
+                 
+               img = readimage(imds,j); %read jth image from the datastor
+               imwrite(img,['NImage' int2str(j), '.png']); %write it to the folder
+                j = j+1;
+                  myfolderinfo = dir('*.png');
+                  NoOfImg = numel(myfolderinfo);
+              cd([loc])
+              if (NoOfImg>0)
+               imds = imageDatastore( (subfolder_name),'FileExtensions',{'.png'});
+              else
+                 continue;
+              end
+                 
+              end
+              
+    % going back to parent folder to be able to create imagedatastore
+       cd ([subfolder_name])
+       myfolderinfo = dir('*.png');
+              NoOfImg= numel(myfolderinfo);
+              if (NoOfImg<(x*y))
+                  continue;
+              end
+
+ 
+      
+       %enter subfolder to count the images inside it 
+ 
+
+      cd ([loc])
+      
+       
+       %UPDATE image datastore with the noisy images
+       imds = imageDatastore( (subfolder_name),'FileExtensions',{'.png'});
+       out = imtile(imds, 'Frames', 1:x*y, 'GridSize', [x y]);
+
+       cd ('E:\videos after processing\Realpng1\')
+      imwrite(out,['Imtile' int2str(i), '.png']);
+       cd ([loc])
+  
+    end
+end
+  
+   function v = myread(file)
+   v=VideoReader(file);
+   end
+
+
+
+
